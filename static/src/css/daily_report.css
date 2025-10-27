@@ -1,0 +1,45 @@
+/* Daily Work Report Custom Styles */
+
+.daily_report_summary {
+    margin-top: 15px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 10px;
+    background-color: #f8f9fa;
+}
+
+.concern_section {
+    margin-top: 10px;
+    padding: 8px;
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 4px;
+}
+
+.work_hours_display {
+    font-weight: bold;
+    color: #495057;
+}
+
+.status_badge_completed {
+    background-color: #d4edda !important;
+    color: #155724 !important;
+}
+
+.status_badge_in_progress {
+    background-color: #cce7ff !important;
+    color: #004085 !important;
+}
+
+.status_badge_pending {
+    background-color: #fff3cd !important;
+    color: #856404 !important;
+}
+
+.ribbon_approved {
+    background: linear-gradient(135deg, #28a745, #20c997) !important;
+}
+
+.ribbon_rejected {
+    background: linear-gradient(135deg, #dc3545, #e74c3c) !important;
+}

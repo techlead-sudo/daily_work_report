@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Concern Action Tree View -->
+    <record id="view_concern_action_tree" model="ir.ui.view">
+        <field name="name">concern.action.tree</field>
+        <field name="model">concern.action</field>
+        <field name="arch" type="xml">
+            <tree decoration-info="state == 'draft'" 
+                  decoration-warning="state == 'in_progress'"
+                  decoration-success="state == 'resolved'"
+                  decoration-danger="state == 'canceled'">
+                <field name="name"/>
+                <field name="employee_id"/>
+                <field name="concern_type"/>
+                <field name="priority" widget="priority"/>
+                <field name="assigned_to"/>
+                <field name="action_date"/>
+                <field name="state" widget="badge"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Concern Action Form View -->
+    <record id="view_concern_action_form" model="ir.ui.view">
+        <field name="name">concern.action.form</field>
+        <field name="model">concern.action</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_start_progress" string="Start Progress" type="object"
+                            invisible="state != 'draft'" class="oe_highlight"/>
+                    <button name="action_resolve" string="Resolve" type="object"
+                            invisible="state not in ['draft', 'in_progress']" class="oe_highlight"/>
+                    <button name="action_cancel" string="Cancel" type="object"
+                            invisible="state in ['resolved', 'canceled']"/>
+                    <field name="state" widget="statusbar" 
+                           statusbar_visible="draft,in_progress,resolved"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Resolved" bg_color="bg-success"
+                            invisible="state != 'resolved'"/>
+                    <widget name="web_ribbon" title="Canceled" bg_color="bg-danger"
+                            invisible="state != 'canceled'"/>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Action Title"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="employee_id"/>
+                            <field name="concern_type"/>
+                            <field name="priority"/>
+                        </group>
+                        <group>
+                            <field name="assigned_to"/>
+                            <field name="action_date"/>
+                            <field name="resolved_date" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="employee_report_id" readonly="1"/>
+                    </group>
+                    <notebook>
+                        <page string="Description" name="description">
+                            <field name="description" placeholder="Describe the concern in detail..."/>
+                        </page>
+                        <page string="Action Taken" name="action_taken">
+                            <field name="action_taken" placeholder="Describe the action taken to address this concern..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids" widget="mail_followers"/>
+                    <field name="message_ids" widget="mail_thread"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <!-- Concern Action Search View -->
+    <record id="view_concern_action_search" model="ir.ui.view">
+        <field name="name">concern.action.search</field>
+        <field name="model">concern.action</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="employee_id"/>
+                <field name="concern_type"/>
+                <field name="assigned_to"/>
+                <filter string="Draft" name="draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="In Progress" name="in_progress" domain="[('state', '=', 'in_progress')]"/>
+                <filter string="Resolved" name="resolved" domain="[('state', '=', 'resolved')]"/>
+                <filter string="High Priority" name="high_priority" domain="[('priority', 'in', ['high', 'urgent'])]"/>
+                <filter string="Assigned to Me" name="assigned_to_me" domain="[('assigned_to.user_id', '=', uid)]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Employee" name="group_by_employee" context="{'group_by': 'employee_id'}"/>
+                    <filter string="Concern Type" name="group_by_concern_type" context="{'group_by': 'concern_type'}"/>
+                    <filter string="Assigned To" name="group_by_assigned_to" context="{'group_by': 'assigned_to'}"/>
+                    <filter string="Status" name="group_by_state" context="{'group_by': 'state'}"/>
+                    <filter string="Priority" name="group_by_priority" context="{'group_by': 'priority'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Concern Action Action -->
+    <record id="action_concern_action" model="ir.actions.act_window">
+        <field name="name">Employee Concerns</field>
+        <field name="res_model">concern.action</field>
+        <field name="view_mode">tree,form</field>
+        <field name="context">{'search_default_in_progress': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No concerns found!
+            </p>
+            <p>
+                Employee concerns are created from daily work reports 
+                and require follow-up actions.
+            </p>
+        </field>
+    </record>
+</odoo>

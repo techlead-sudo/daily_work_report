@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Report Reject Wizard View -->
+    <record id="view_report_reject_wizard_form" model="ir.ui.view">
+        <field name="name">report.reject.wizard.form</field>
+        <field name="model">report.reject.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="employee_report_id" invisible="1"/>
+                        <field name="support_staff_id" invisible="1"/>
+                        <field name="reason" placeholder="Please provide a clear reason for rejection..."/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_reject_report" string="Reject Report" type="object" 
+                            class="btn-danger"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

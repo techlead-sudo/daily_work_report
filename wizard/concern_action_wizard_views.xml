@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Concern Action Wizard View -->
+    <record id="view_concern_action_wizard_form" model="ir.ui.view">
+        <field name="name">concern.action.wizard.form</field>
+        <field name="model">concern.action.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="employee_report_id" invisible="1"/>
+                        <field name="name"/>
+                        <field name="concern_type"/>
+                        <field name="priority"/>
+                        <field name="assigned_to"/>
+                    </group>
+                    <group>
+                        <field name="description" nolabel="1"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_create_concern_action" string="Create Action" type="object" 
+                            class="oe_highlight"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

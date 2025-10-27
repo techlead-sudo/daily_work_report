@@ -1,0 +1,8 @@
+# Daily Work Report Icon
+
+Since we cannot create actual image files here, you should add an icon.png file to the static/description/ directory.
+
+For now, the module will use a default Odoo icon. You can create a custom icon (128x128 pixels) and save it as:
+/static/description/icon.png
+
+The icon should represent daily work reporting - perhaps a calendar with checkmarks, a clipboard, or a time tracking symbol.

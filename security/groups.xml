@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Module Category -->
+    <record id="module_category_daily_work_report" model="ir.module.category">
+        <field name="name">Daily Work Report</field>
+        <field name="sequence">28</field>
+        <field name="visible" eval="1"/>
+    </record>
+
+    <!-- User Group -->
+    <record id="group_user" model="res.groups">
+        <field name="name">User</field>
+        <field name="category_id" ref="module_category_daily_work_report"/>
+        <field name="comment">Basic user can create and view own reports</field>
+    </record>
+
+    <!-- Staff Group -->
+    <record id="group_staff" model="res.groups">
+        <field name="name">Staff</field>
+        <field name="category_id" ref="module_category_daily_work_report"/>
+        <field name="implied_ids" eval="[(4, ref('group_user'))]"/>
+        <field name="comment">Staff members can create support staff reports</field>
+    </record>
+
+    <!-- Staff Manager Group -->
+    <record id="group_staff_manager" model="res.groups">
+        <field name="name">Staff Manager</field>
+        <field name="category_id" ref="module_category_daily_work_report"/>
+        <field name="implied_ids" eval="[(4, ref('group_staff'))]"/>
+        <field name="comment">Staff managers can approve support staff reports</field>
+    </record>
+
+    <!-- HOD Group -->
+    <record id="group_hod" model="res.groups">
+        <field name="name">Head of Department (HOD)</field>
+        <field name="category_id" ref="module_category_daily_work_report"/>
+        <field name="implied_ids" eval="[(4, ref('group_user'))]"/>
+        <field name="comment">HODs can submit and approve reports from previous days</field>
+    </record>
+
+    <!-- Directors Group -->
+    <record id="group_directors" model="res.groups">
+        <field name="name">VP/Directors</field>
+        <field name="category_id" ref="module_category_daily_work_report"/>
+        <field name="implied_ids" eval="[(4, ref('group_hod'))]"/>
+        <field name="comment">Directors can approve all reports and access all functions</field>
+    </record>
+
+    <!-- Admin Group -->
+    <record id="group_admin" model="res.groups">
+        <field name="name">Admin</field>
+        <field name="category_id" ref="module_category_daily_work_report"/>
+        <field name="implied_ids" eval="[(4, ref('group_directors'))]"/>
+        <field name="comment">Admins have full access to all reports and configurations</field>
+    </record>
+
+    <!-- Super Admin Group -->
+    <record id="group_super_admin" model="res.groups">
+        <field name="name">Super Admin</field>
+        <field name="category_id" ref="module_category_daily_work_report"/>
+        <field name="implied_ids" eval="[(4, ref('group_admin'))]"/>
+        <field name="comment">Super admins have complete system access</field>
+    </record>
+
+    <!-- Concern Managers Group -->
+    <record id="group_concern_managers" model="res.groups">
+        <field name="name">Concern Managers</field>
+        <field name="category_id" ref="module_category_daily_work_report"/>
+        <field name="comment">Can manage employee concerns and actions</field>
+    </record>
+</odoo>

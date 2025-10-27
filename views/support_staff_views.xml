@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Support Staff Tree View -->
+    <record id="view_support_staff_tree" model="ir.ui.view">
+        <field name="name">support.staff.tree</field>
+        <field name="model">support.staff</field>
+        <field name="arch" type="xml">
+            <tree decoration-info="state == 'draft'" 
+                  decoration-success="state == 'approved'" 
+                  decoration-danger="state == 'rejected'">
+                <field name="name"/>
+                <field name="department_id"/>
+                <field name="summary2"/>
+                <field name="date"/>
+                <field name="state" widget="badge"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Support Staff Form View -->
+    <record id="view_support_staff_form" model="ir.ui.view">
+        <field name="name">support.staff.form</field>
+        <field name="model">support.staff</field>
+        <field name="arch" type="xml">
+            <form>
+                <field name="is_manager" invisible="1"/>
+                <field name="is_director" invisible="1"/>
+                <header>
+                    <button name="action_submit" string="Submit" type="object" 
+                            invisible="is_manager or state != 'draft'"
+                            class="oe_highlight btn-primary"/>
+                    <button name="action_approve" string="Approve" type="object" 
+                            class="oe_highlight"
+                            invisible="state != 'submitted'"
+                            groups="daily_work_report.group_directors"/>
+                    <button name="action_rejection" string="Reject" type="object" 
+                            class="btn-danger"
+                            invisible="state != 'submitted'"
+                            groups="daily_work_report.group_directors"/>
+                    <field name="state" widget="statusbar" 
+                           statusbar_visible="draft,submitted,approved"
+                           statusbar_colors='{"draft":"blue","submitted":"orange","approved":"green","rejected":"red"}'/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Approved" bg_color="bg-success"
+                            invisible="state != 'approved'"/>
+                    <widget name="web_ribbon" title="Rejected" bg_color="bg-danger"
+                            invisible="state != 'rejected'"/>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" options="{'no_open': True}" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="department_id" options="{'no_open': True}" readonly="1"/>
+                            <field name="start_time" readonly="state != 'draft'" widget="float_time"/>
+                            <field name="total_work_hours"/>
+                        </group>
+                        <group>
+                            <field name="branch_id" options="{'no_open': True}" readonly="1"/>
+                            <field name="end_time" readonly="state != 'draft'" widget="float_time"/>
+                            <field name="date" readonly="not is_director"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Yesterday Pending Work" name="pending_works">
+                            <field name="yesterday_wrk_support_ids" mode="tree" readonly="state != 'draft'"
+                                   context="{'default_work_type': 'yesterday'}">
+                                <tree editable="bottom">
+                                    <field name="name"/>
+                                    <field name="time_taken"/>
+                                    <field name="current_status"/>
+                                    <field name="work_type" invisible="1"/>
+                                </tree>
+                            </field>
+                            <field name="summary1" class="oe_inline" readonly="state != 'draft'"
+                                   placeholder="Enter yesterday work summary here..."/>
+                        </page>
+                        <page name="today_report" string="Today Work">
+                            <field name="today_wrk_support_ids" mode="tree" readonly="state != 'draft'"
+                                   context="{'default_work_type': 'today'}">
+                                <tree editable="bottom">
+                                    <field name="name" required="1"/>
+                                    <field name="time_taken" required="1"/>
+                                    <field name="current_status" required="1" options="{'no_create': True}"/>
+                                    <field name="work_type" invisible="1"/>
+                                </tree>
+                            </field>
+                            <field name="summary2" class="oe_inline" readonly="state != 'draft'"
+                                   placeholder="Enter today work summary here..."/>
+                        </page>
+                        <page name="balance_report" string="Balance Work">
+                            <field name="balance_wrk_support_ids" mode="tree" readonly="state != 'draft'"
+                                   context="{'default_work_type': 'balance'}">
+                                <tree editable="bottom">
+                                    <field name="name"/>
+                                    <field name="time_taken"/>
+                                    <field name="current_status"/>
+                                    <field name="work_type" invisible="1"/>
+                                </tree>
+                            </field>
+                            <field name="summary3" class="oe_inline" readonly="state != 'draft'"
+                                   placeholder="Enter balance work summary here..."/>
+                        </page>
+                    </notebook>
+                    <group>
+                        <group>
+                            <field name="prepared_by" options="{'no_open': True}" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="approved_by" options="{'no_open': True}" readonly="1"/>
+                        </group>
+                    </group>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids" widget="mail_followers"/>
+                    <field name="message_ids" widget="mail_thread"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <!-- Support Staff Search View -->
+    <record id="view_support_staff_search" model="ir.ui.view">
+        <field name="name">support.staff.search</field>
+        <field name="model">support.staff</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="department_id"/>
+                <field name="date"/>
+                <field name="state"/>
+                <filter string="My Reports" name="my_reports" 
+                        domain="[('name.user_id', '=', uid)]"/>
+                <filter string="Today" name="today" 
+                        domain="[('date', '=', context_today())]"/>
+                <filter string="Draft" name="draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="Submitted" name="submitted" domain="[('state', '=', 'submitted')]"/>
+                <filter string="Approved" name="approved" domain="[('state', '=', 'approved')]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Employee" name="group_by_employee" context="{'group_by': 'name'}"/>
+                    <filter string="Department" name="group_by_department" context="{'group_by': 'department_id'}"/>
+                    <filter string="Date" name="group_by_date" context="{'group_by': 'date'}"/>
+                    <filter string="Status" name="group_by_state" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Support Staff Action -->
+    <record id="action_support_staff" model="ir.actions.act_window">
+        <field name="name">Support Staff Reports</field>
+        <field name="res_model">support.staff</field>
+        <field name="view_mode">tree,form</field>
+        <field name="context">{'search_default_my_reports': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first support staff report!
+            </p>
+            <p>
+                Track your daily support activities including yesterday's pending work,
+                today's work, and planned balance work.
+            </p>
+        </field>
+    </record>
+</odoo>

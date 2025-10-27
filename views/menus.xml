@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Main Menu -->
+    <menuitem id="menu_daily_work_report_root"
+              name="DWR"
+              web_icon="daily_work_report,static/description/icon.png"
+              sequence="10"/>
+
+    <!-- Employee Reports Menu -->
+    <menuitem id="menu_employee_report"
+              name="Daily Work Report"
+              parent="menu_daily_work_report_root"
+              sequence="1"
+              action="action_employee_report"/>
+
+    <!-- Support Staff Reports Menu -->
+    <menuitem id="menu_support_staff"
+              name="Support Staff Report"
+              groups="daily_work_report.group_admin,daily_work_report.group_directors,daily_work_report.group_staff,daily_work_report.group_staff_manager"
+              sequence="2"
+              parent="menu_daily_work_report_root"
+              action="action_support_staff"/>
+
+    <!-- Configuration Menu -->
+    <menuitem id="menu_configuration"
+              name="Configuration"
+              parent="menu_daily_work_report_root"
+              groups="daily_work_report.group_admin,daily_work_report.group_super_admin"
+              sequence="10"/>
+
+    <!-- Job Status Menu -->
+    <menuitem id="menu_job_status" 
+              name="Job Status" 
+              parent="menu_configuration"
+              groups="daily_work_report.group_super_admin"
+              action="action_job_status" 
+              sequence="1"/>
+
+    <!-- Additional Managers Menu -->
+    <menuitem id="menu_employee_additional_manager" 
+              name="Additional Reporting Managers"
+              parent="menu_configuration"
+              action="action_employee_additional_manager"
+              groups="daily_work_report.group_super_admin,daily_work_report.group_admin"
+              sequence="2"/>
+
+    <!-- Concerns Menu -->
+    <menuitem id="menu_concern"
+              name="Employee Concerns"
+              parent="menu_daily_work_report_root"
+              action="action_concern_action"
+              groups="daily_work_report.group_concern_managers"
+              sequence="3"/>
+
+</odoo>

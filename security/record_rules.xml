@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Employee Report Rules -->
+    <record id="rule_employee_report_user" model="ir.rule">
+        <field name="name">Employee Report: User can see own reports</field>
+        <field name="model_id" ref="model_employee_report"/>
+        <field name="groups" eval="[(4, ref('group_user'))]"/>
+        <field name="domain_force">[('name.user_id', '=', user.id)]</field>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="rule_employee_report_manager" model="ir.rule">
+        <field name="name">Employee Report: Managers can see team reports</field>
+        <field name="model_id" ref="model_employee_report"/>
+        <field name="groups" eval="[(4, ref('group_hod'))]"/>
+        <field name="domain_force">['|', 
+            ('name.parent_id.user_id', '=', user.id),
+            ('reporting_manager_id.user_id', '=', user.id)
+        ]</field>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="rule_employee_report_directors" model="ir.rule">
+        <field name="name">Employee Report: Directors can see all reports</field>
+        <field name="model_id" ref="model_employee_report"/>
+        <field name="groups" eval="[(4, ref('group_directors'))]"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <!-- Support Staff Rules -->
+    <record id="rule_support_staff_user" model="ir.rule">
+        <field name="name">Support Staff: User can see own reports</field>
+        <field name="model_id" ref="model_support_staff"/>
+        <field name="groups" eval="[(4, ref('group_staff'))]"/>
+        <field name="domain_force">[('name.user_id', '=', user.id)]</field>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="rule_support_staff_manager" model="ir.rule">
+        <field name="name">Support Staff: Managers can see team reports</field>
+        <field name="model_id" ref="model_support_staff"/>
+        <field name="groups" eval="[(4, ref('group_staff_manager'))]"/>
+        <field name="domain_force">[('name.parent_id.user_id', '=', user.id)]</field>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <!-- Concern Action Rules -->
+    <record id="rule_concern_action_concern_managers" model="ir.rule">
+        <field name="name">Concern Action: Concern managers can see all</field>
+        <field name="model_id" ref="model_concern_action"/>
+        <field name="groups" eval="[(4, ref('group_concern_managers'))]"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+</odoo>
