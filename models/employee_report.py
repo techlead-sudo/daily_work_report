@@ -1,9 +1,12 @@
 import re
 import calendar
+import logging
 from datetime import date, datetime, timedelta
 
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError, UserError
+
+_logger = logging.getLogger(__name__)
 
 
 class EmployeeReport(models.Model):
@@ -244,6 +247,166 @@ class EmployeeReport(models.Model):
             'submitted_time': fields.Datetime.now()
         })
 
+        # Create escalation queue entry (next day at 14:00) so cron can escalate if still pending
+        for record in self:
+            try:
+                try:
+                    # For testing: schedule just 10 seconds from now
+                    scheduled_dt = datetime.now() + timedelta(seconds=10)
+                except Exception as e:
+                    _logger.error("Error setting scheduled time: %s", e)
+                    scheduled_dt = datetime.now() + timedelta(seconds=10)
+                esc_vals = {
+                    'employee_report_id': record.id,
+                    'scheduled_datetime': fields.Datetime.to_string(scheduled_dt),
+                }
+                self.env['dwr.escalation'].sudo().create(esc_vals)
+            except Exception as e:
+                _logger.error('Failed to create escalation queue for report %s: %s', record.id, e)
+
+        # Send email notification to the reporting manager
+        for record in self:
+            try:
+                _logger.info("=== Starting DWR Submission Email Process ===")
+                _logger.info("Report ID: %s, Employee: %s", record.id, record.name.name)
+
+                # Determine sender email (try mail.default.from, then company email, then catchall)
+                email_from = self.env['ir.config_parameter'].sudo().get_param('mail.default.from')
+                if not email_from:
+                    email_from = self.env.company.email or (self.env.user.company_id.email if self.env.user.company_id else False)
+                if not email_from:
+                    catchall = self.env['ir.config_parameter'].sudo().get_param('mail.catchall.domain')
+                    if catchall:
+                        email_from = 'no-reply@' + catchall
+                        _logger.warning("Using catchall to build sender email: %s", email_from)
+                    else:
+                        email_from = 'no-reply@example.com'
+                        _logger.warning("No sender configured; falling back to %s", email_from)
+                _logger.info("Email will be sent from: %s", email_from)
+
+                # Get manager (reporting or direct)
+                manager = record.reporting_manager_id
+                _logger.info("Reporting manager: %s", manager.name if manager else "None")
+
+                if not manager and record.name and record.name.parent_id:
+                    manager = record.name.parent_id
+                    _logger.info("Using direct manager as fallback: %s", manager.name if manager else "None")
+
+                if manager:
+                    _logger.info("Manager details - ID: %s, Name: %s", manager.id, manager.name)
+                    
+                    # Try to get manager's email
+                    manager_email = False
+                    if manager.work_email:
+                        manager_email = manager.work_email
+                        _logger.info("Using manager's work email: %s", manager_email)
+                    elif manager.user_id and manager.user_id.partner_id.email:
+                        manager_email = manager.user_id.partner_id.email
+                        _logger.info("Using manager's user email: %s", manager_email)
+                    
+                    if manager_email:
+                        # Get base URL for the link
+                        base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+                        record_url = f"{base_url}/web#id={record.id}&model={self._name}&view_type=form"
+                        _logger.info("Record URL: %s", record_url)
+                        
+                        # Prepare email content
+                        subject = f"Daily Work Report submitted by {record.name.name}"
+                        body = f"""
+                            <div style="margin: 0px; padding: 0px;">
+                                <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                                    Hello {manager.name},
+                                </p>
+                                <p style="margin: 16px 0px 0px 0px; padding: 0px; font-size: 13px;">
+                                    {record.name.name} has submitted a daily work report for {record.date}.
+                                </p>
+                                <div style="margin: 16px 0px 0px 0px; padding: 0px; font-size: 13px;">
+                                    <a href="{record_url}" 
+                                       style="background-color: #875A7B; padding: 8px 16px 8px 16px; 
+                                              text-decoration: none; color: #fff; 
+                                              border-radius: 5px; font-size:13px;">
+                                        View Report
+                                    </a>
+                                </div>
+                                <p style="margin: 16px 0px 0px 0px; padding: 0px; font-size: 13px;">
+                                    This report requires your review and approval.
+                                </p>
+                            </div>
+                        """
+                        
+                        # Create and send the email using sudo()
+                        mail_values = {
+                            'subject': subject,
+                            'body_html': body,
+                            'email_to': manager_email,
+                            'email_from': email_from,
+                            'auto_delete': False,
+                            'state': 'outgoing',
+                            'message_type': 'email',
+                            'model': self._name,
+                            'res_id': record.id,
+                        }
+                        
+                        # Try sending via mail template (preferred) otherwise fallback to mail.mail
+                        try:
+                            template = False
+                            try:
+                                template = self.env.ref('daily_work_report.mail_template_dwr_submission')
+                            except Exception:
+                                template = False
+                            if template:
+                                _logger.info('Found submission template, using it to send email')
+                                template.sudo().send_mail(record.id, force_send=True, email_values={'email_from': email_from, 'email_to': manager_email})
+                                _logger.info('Template send_mail completed for record %s', record.id)
+                                # Log in chatter
+                                self.message_post(
+                                    body=f"Daily work report submitted. Email notification sent to {manager.name} ({manager_email})",
+                                    message_type='notification'
+                                )
+                            else:
+                                _logger.info('No submission template found, falling back to mail.mail')
+                                _logger.info("Creating mail with values: %s", mail_values)
+                                mail = self.env['mail.mail'].sudo().create(mail_values)
+                                _logger.info("Created mail.mail record ID: %s", mail.id)
+                                # Force send immediately
+                                _logger.info("Attempting to send mail...")
+                                mail.sudo().send(raise_exception=True)
+                                # Re-browse to get status
+                                mail = self.env['mail.mail'].sudo().browse(mail.id)
+                                _logger.info("Mail status after sending: %s", mail.state)
+                                # Create a message in the chatter
+                                self.message_post(
+                                    body=f"Daily work report submitted. Email notification sent to {manager.name} ({manager_email})",
+                                    message_type='notification'
+                                )
+                        except Exception as e:
+                            _logger.error('Failed to send via template or fallback mail: %s', e, exc_info=True)
+                        
+                    else:
+                        _logger.error("❌ No email address found for manager %s", manager.name)
+                        self.message_post(
+                            body=f"⚠️ Could not send email notification: No email address found for manager {manager.name}",
+                            message_type='notification'
+                        )
+                else:
+                    _logger.error("❌ No manager found for employee %s", record.name.name)
+                    self.message_post(
+                        body="⚠️ Could not send email notification: No manager found",
+                        message_type='notification'
+                    )
+
+            except Exception as e:
+                _logger.error("❌ Error in submission notification process: %s", str(e), exc_info=True)
+                # Post the error in chatter
+                self.message_post(
+                    body=f"⚠️ Failed to send email notification to manager. Error: {str(e)}",
+                    message_type='notification'
+                )
+            finally:
+                _logger.info("=== End of DWR Submission Email Process ===\n")
+        
+        # Note: duplicate/legacy notification block removed (handled above)
+
     def action_approve(self):
         """Approve the report"""
         today = fields.Date.today()
@@ -255,6 +418,49 @@ class EmployeeReport(models.Model):
                 'approved_time': fields.Datetime.now()
             })
             self.activity_ids.unlink()
+            # Notify employee by email
+            for rec in self:
+                try:
+                    employee = rec.name
+                    if employee:
+                        employee_email = employee.work_email or (employee.user_id.partner_id.email if employee.user_id else False)
+                        if employee_email:
+                            # Try using approval template if present
+                            try:
+                                template = False
+                                try:
+                                    template = self.env.ref('daily_work_report.mail_template_dwr_approved')
+                                except Exception:
+                                    template = False
+                                # Compute email_from fallback
+                                email_from = self.env['ir.config_parameter'].sudo().get_param('mail.default.from')
+                                if not email_from:
+                                    email_from = self.env.company.email or (self.env.user.company_id.email if self.env.user.company_id else False)
+                                if not email_from:
+                                    catchall = self.env['ir.config_parameter'].sudo().get_param('mail.catchall.domain')
+                                    if catchall:
+                                        email_from = 'no-reply@' + catchall
+                                    else:
+                                        email_from = 'no-reply@example.com'
+
+                                if template:
+                                    template.sudo().send_mail(rec.id, force_send=True, email_values={'email_from': email_from, 'email_to': employee_email})
+                                else:
+                                    subject = _("Your Daily Work Report has been approved")
+                                    body = _("<p>Hello %s,</p><p>Your daily work report for %s has been approved by %s.</p>") % (
+                                        employee.name or '', rec.date or '', self.env.user.name or '')
+                                    mail = self.env['mail.mail'].create({
+                                        'subject': subject,
+                                        'body_html': body,
+                                        'email_to': employee_email,
+                                    })
+                                    mail.send()
+                            except Exception:
+                                # Do not block approval on email failure
+                                pass
+                except Exception:
+                    # Do not block approval on email failure
+                    pass
             return {
                 'effect': {
                     'fadeout': 'slow',
@@ -278,6 +484,47 @@ class EmployeeReport(models.Model):
                 'approved_time': fields.Datetime.now()
             })
             self.activity_ids.unlink()
+            # Notify employee by email
+            for rec in self:
+                try:
+                    employee = rec.name
+                    if employee:
+                        employee_email = employee.work_email or (employee.user_id.partner_id.email if employee.user_id else False)
+                        if employee_email:
+                            # Try using approval template if present
+                            try:
+                                template = False
+                                try:
+                                    template = self.env.ref('daily_work_report.mail_template_dwr_approved')
+                                except Exception:
+                                    template = False
+                                # Compute email_from fallback
+                                email_from = self.env['ir.config_parameter'].sudo().get_param('mail.default.from')
+                                if not email_from:
+                                    email_from = self.env.company.email or (self.env.user.company_id.email if self.env.user.company_id else False)
+                                if not email_from:
+                                    catchall = self.env['ir.config_parameter'].sudo().get_param('mail.catchall.domain')
+                                    if catchall:
+                                        email_from = 'no-reply@' + catchall
+                                    else:
+                                        email_from = 'no-reply@example.com'
+
+                                if template:
+                                    template.sudo().send_mail(rec.id, force_send=True, email_values={'email_from': email_from, 'email_to': employee_email})
+                                else:
+                                    subject = _("Your Daily Work Report has been approved")
+                                    body = _("<p>Hello %s,</p><p>Your daily work report for %s has been approved by %s.</p>") % (
+                                        employee.name or '', rec.date or '', self.env.user.name or '')
+                                    mail = self.env['mail.mail'].create({
+                                        'subject': subject,
+                                        'body_html': body,
+                                        'email_to': employee_email,
+                                    })
+                                    mail.send()
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
             return {
                 'effect': {
                     'fadeout': 'slow',
@@ -339,3 +586,46 @@ class EmployeeReport(models.Model):
                 'default_name': default_title,
             },
         }
+
+    def message_post(self, **kwargs):
+        """Override to send an email to the employee when a manager posts a message/comment."""
+        res = super(EmployeeReport, self).message_post(**kwargs)
+
+        # Only consider comment messages (manager notes) and send notifications to employee
+        message_type = kwargs.get('message_type', 'comment')
+        if message_type != 'comment':
+            return res
+
+        for rec in self:
+            try:
+                # Determine if current user is a manager for this employee
+                user = self.env.user
+                is_mgr = False
+                if rec.name and rec.name.parent_id and rec.name.parent_id.user_id == user:
+                    is_mgr = True
+                if not is_mgr and rec.reporting_manager_id and rec.reporting_manager_id.user_id == user:
+                    is_mgr = True
+                if not is_mgr:
+                    add_mgr = self.env['employee.additional.manager'].search([
+                        ('employee_id', '=', rec.name.id if rec.name else False),
+                        ('manager_id.user_id', '=', user.id),
+                    ], limit=1)
+                    if add_mgr:
+                        is_mgr = True
+
+                if is_mgr and rec.name:
+                    employee_email = rec.name.work_email or (rec.name.user_id.partner_id.email if rec.name.user_id else False)
+                    if employee_email:
+                        body = kwargs.get('body') or ''
+                        subject = _("Message from manager regarding your Daily Work Report")
+                        mail = self.env['mail.mail'].create({
+                            'subject': subject,
+                            'body_html': body,
+                            'email_to': employee_email,
+                        })
+                        mail.send()
+            except Exception:
+                # Swallow exceptions to avoid breaking messaging
+                pass
+
+        return res

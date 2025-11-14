@@ -118,6 +118,24 @@ class SupportStaff(models.Model):
             'state': 'submitted',
             'prepared_by': self.env.user.employee_id.id,
         })
+        # Notify manager (direct manager) about submission
+        for rec in self:
+            try:
+                manager = rec.name.parent_id if rec.name and rec.name.parent_id else False
+                if manager:
+                    manager_email = manager.work_email or (manager.user_id.partner_id.email if manager.user_id else False)
+                    if manager_email:
+                        subject = _("Support Staff Report submitted by %s") % (rec.name.name if rec.name else '')
+                        body = _("<p>Hello %s,</p><p>%s has submitted a support staff report for %s.</p>") % (
+                            manager.name or '', rec.name.name if rec.name else '', rec.date or '')
+                        mail = self.env['mail.mail'].create({
+                            'subject': subject,
+                            'body_html': body,
+                            'email_to': manager_email,
+                        })
+                        mail.send()
+            except Exception:
+                pass
 
     def action_approve(self):
         if self.is_director or self.is_manager:
@@ -134,6 +152,36 @@ class SupportStaff(models.Model):
             }
         else:
             raise ValidationError(_("You are not authorized to approve this report"))
+
+    def message_post(self, **kwargs):
+        """Override to notify employee when a manager posts a comment."""
+        res = super(SupportStaff, self).message_post(**kwargs)
+
+        message_type = kwargs.get('message_type', 'comment')
+        if message_type != 'comment':
+            return res
+
+        for rec in self:
+            try:
+                user = self.env.user
+                is_mgr = False
+                if rec.name and rec.name.parent_id and rec.name.parent_id.user_id == user:
+                    is_mgr = True
+                if is_mgr and rec.name:
+                    employee_email = rec.name.work_email or (rec.name.user_id.partner_id.email if rec.name.user_id else False)
+                    if employee_email:
+                        body = kwargs.get('body') or ''
+                        subject = _("Message from manager regarding your Support Staff Report")
+                        mail = self.env['mail.mail'].create({
+                            'subject': subject,
+                            'body_html': body,
+                            'email_to': employee_email,
+                        })
+                        mail.send()
+            except Exception:
+                pass
+
+        return res
 
     def action_rejection(self):
         if self.is_director or self.is_manager:

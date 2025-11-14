@@ -12,13 +12,30 @@
         <field name="perm_unlink" eval="False"/>
     </record>
 
+    <!-- Rule for direct managers and reporting managers -->
     <record id="rule_employee_report_manager" model="ir.rule">
-        <field name="name">Employee Report: Managers can see team reports</field>
+        <field name="name">Employee Report: All Managers Access</field>
         <field name="model_id" ref="model_employee_report"/>
-        <field name="groups" eval="[(4, ref('group_hod'))]"/>
+        <field name="groups" eval="[(4, ref('group_user'))]"/>
         <field name="domain_force">['|', 
             ('name.parent_id.user_id', '=', user.id),
             ('reporting_manager_id.user_id', '=', user.id)
+        ]</field>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <!-- Additional rule for report actions by managers -->
+    <record id="rule_employee_report_reporting_manager" model="ir.rule">
+        <field name="name">Employee Report: Reporting Manager Actions</field>
+        <field name="model_id" ref="model_employee_report"/>
+        <field name="groups" eval="[(4, ref('group_user'))]"/>
+        <field name="domain_force">['|', '|',
+            ('name.parent_id.user_id', '=', user.id),
+            ('reporting_manager_id.user_id', '=', user.id),
+            ('state', 'in', ['draft', 'submitted'])
         ]</field>
         <field name="perm_read" eval="True"/>
         <field name="perm_write" eval="True"/>
@@ -66,5 +83,43 @@
         <field name="model_id" ref="model_concern_action"/>
         <field name="groups" eval="[(4, ref('group_concern_managers'))]"/>
         <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+
+    <!-- Reject Wizard Rules -->
+    <record id="rule_report_reject_wizard_all_managers" model="ir.rule">
+        <field name="name">Report Reject Wizard: All Managers Access</field>
+        <field name="model_id" ref="model_report_reject_wizard"/>
+        <field name="groups" eval="[
+            (4, ref('group_staff_manager')),
+            (4, ref('group_hod')),
+            (4, ref('group_directors')),
+            (4, ref('group_admin'))
+        ]"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <!-- Employee Report Reject Rule -->
+    <record id="rule_reject_employee_report" model="ir.rule">
+        <field name="name">Report Reject: Employee Reports Access</field>
+        <field name="model_id" ref="model_report_reject_wizard"/>
+        <field name="groups" eval="[(4, ref('group_user'))]"/>
+        <field name="domain_force">[
+            '|', '|',
+            ('employee_report_id.name.parent_id.user_id', '=', user.id),
+            ('employee_report_id.reporting_manager_id.user_id', '=', user.id),
+            ('employee_report_id.state', 'in', ['submitted'])
+        ]</field>
+    </record>
+
+    <!-- Support Staff Report Reject Rule -->
+    <record id="rule_reject_support_staff" model="ir.rule">
+        <field name="name">Report Reject: Support Staff Reports Access</field>
+        <field name="model_id" ref="model_report_reject_wizard"/>
+        <field name="groups" eval="[(4, ref('group_staff_manager'))]"/>
+        <field name="domain_force">[('support_staff_id.name.parent_id.user_id', '=', user.id)]</field>
     </record>
 </odoo>

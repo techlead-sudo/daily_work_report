@@ -37,7 +37,9 @@
         
         # Data
         'data/job_status_data.xml',
-        'data/mail_activity_data.xml',
+    'data/mail_activity_data.xml',
+    'data/mail_templates.xml',
+        'data/cron_escalation.xml',
         
         # Views
         'views/job_status_views.xml',

@@ -29,3 +29,12 @@ access_employee_additional_manager_super_admin,employee.additional.manager.super
 access_concern_action_user,concern.action.user,model_concern_action,group_user,1,0,0,0
 access_concern_action_concern_managers,concern.action.concern_managers,model_concern_action,group_concern_managers,1,1,1,1
 access_concern_action_admin,concern.action.admin,model_concern_action,group_admin,1,1,1,1
+
+access_report_reject_wizard_user,report.reject.wizard.user,model_report_reject_wizard,group_user,1,1,1,0
+access_report_reject_wizard_staff_manager,report.reject.wizard.staff.manager,model_report_reject_wizard,group_staff_manager,1,1,1,0
+access_report_reject_wizard_hod,report.reject.wizard.hod,model_report_reject_wizard,group_hod,1,1,1,0
+access_report_reject_wizard_directors,report.reject.wizard.directors,model_report_reject_wizard,group_directors,1,1,1,0
+access_report_reject_wizard_admin,report.reject.wizard.admin,model_report_reject_wizard,group_admin,1,1,1,1
+access_report_reject_wizard_reporting_manager,report.reject.wizard.reporting.manager,model_report_reject_wizard,group_user,1,1,1,0
+access_dwr_escalation_user,dwr.escalation.user,model_dwr_escalation,group_user,1,1,1,0
+access_dwr_escalation_admin,dwr.escalation.admin,model_dwr_escalation,group_admin,1,1,1,1
