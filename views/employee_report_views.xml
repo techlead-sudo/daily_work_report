@@ -34,6 +34,8 @@
                         domain="[('date', '=', context_today())]"/>
                 <filter string="Reports to Me" name="reporting_to_me" 
                         domain="[('reporting_manager_id.user_id', '=', uid)]"/>
+                <filter string="Pending Team Reports" name="pending_team_reports"
+                        domain="['&amp;', ('state', '=', 'submitted'), '|', ('name.parent_id.user_id', '=', uid), ('reporting_manager_id.user_id', '=', uid)]"/>
                 <filter string="Draft" name="draft" domain="[('state', '=', 'draft')]"/>
                 <filter string="Submitted" name="submitted" domain="[('state', '=', 'submitted')]"/>
                 <filter string="Approved" name="approved" domain="[('state', '=', 'approved')]"/>
@@ -63,6 +65,7 @@
                 <field name="is_manager" invisible="1"/>
                 <field name="is_director" invisible="1"/>
                 <field name="is_hod" invisible="1"/>
+                <field name="is_own_report" invisible="1"/>
                 <field name="available_manager_ids" invisible="1"/>
                 <header>
                     <button name="action_submit" string="Submit" type="object" 
@@ -70,12 +73,12 @@
                             class="oe_highlight btn-primary"/>
                     <button name="action_approve" string="Approve" type="object" 
                             class="oe_highlight"
-                            invisible="state != 'submitted'"
-                            groups="daily_work_report.group_directors"/>
+                            invisible="state != 'submitted' or is_own_report"
+                            groups="daily_work_report.group_user,daily_work_report.group_staff_manager,daily_work_report.group_hod,daily_work_report.group_directors"/>
                     <button name="action_reject" string="Reject" type="object" 
                             class="btn-danger"
-                            invisible="state != 'submitted'"
-                            groups="daily_work_report.group_directors"/>
+                            invisible="state != 'submitted' or is_own_report"
+                            groups="daily_work_report.group_user,daily_work_report.group_staff_manager,daily_work_report.group_hod,daily_work_report.group_directors"/>
                     <field name="state" widget="statusbar" 
                            statusbar_visible="draft,submitted,approved"
                            statusbar_colors='{"draft":"blue","submitted":"orange","approved":"green","rejected":"red"}'/>

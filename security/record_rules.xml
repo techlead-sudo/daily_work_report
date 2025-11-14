@@ -14,9 +14,9 @@
 
     <!-- Rule for direct managers and reporting managers -->
     <record id="rule_employee_report_manager" model="ir.rule">
-        <field name="name">Employee Report: All Managers Access</field>
+        <field name="name">Employee Report: Managers can see team reports</field>
         <field name="model_id" ref="model_employee_report"/>
-        <field name="groups" eval="[(4, ref('group_user'))]"/>
+        <field name="groups" eval="[(4, ref('group_staff_manager')), (4, ref('group_hod'))]"/>
         <field name="domain_force">['|', 
             ('name.parent_id.user_id', '=', user.id),
             ('reporting_manager_id.user_id', '=', user.id)
@@ -31,11 +31,10 @@
     <record id="rule_employee_report_reporting_manager" model="ir.rule">
         <field name="name">Employee Report: Reporting Manager Actions</field>
         <field name="model_id" ref="model_employee_report"/>
-        <field name="groups" eval="[(4, ref('group_user'))]"/>
-        <field name="domain_force">['|', '|',
+        <field name="groups" eval="[(4, ref('group_staff_manager')), (4, ref('group_hod'))]"/>
+        <field name="domain_force">['|', 
             ('name.parent_id.user_id', '=', user.id),
-            ('reporting_manager_id.user_id', '=', user.id),
-            ('state', 'in', ['draft', 'submitted'])
+            ('reporting_manager_id.user_id', '=', user.id)
         ]</field>
         <field name="perm_read" eval="True"/>
         <field name="perm_write" eval="True"/>

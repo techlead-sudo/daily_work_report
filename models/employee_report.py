@@ -73,6 +73,7 @@ class EmployeeReport(models.Model):
     is_hod = fields.Boolean(string='Is HOD', compute="_compute_is_manager")
     is_half_day = fields.Boolean(string="Half day report", compute="_compute_is_half_day")
     available_manager_ids = fields.Many2many('hr.employee', compute='_compute_available_manager_ids')
+    is_own_report = fields.Boolean(string="Is Own Report", compute="_compute_is_own_report")
 
     def _default_report_ids(self):
         """Create default report line for refreshment break"""
@@ -195,6 +196,12 @@ class EmployeeReport(models.Model):
             record.is_manager = is_direct_manager or is_reporting_manager or is_additional_manager
             record.is_director = self.env.user.has_group('daily_work_report.group_directors')
             record.is_hod = self.env.user.has_group('daily_work_report.group_hod')
+
+    @api.depends('name')
+    def _compute_is_own_report(self):
+        """Check if the current user is the employee of this report"""
+        for record in self:
+            record.is_own_report = record.name.user_id == self.env.user if record.name else False
 
     @api.constrains('name', 'date', 'reporting_manager_id')
     def _check_unique_record_per_day(self):
@@ -411,6 +418,10 @@ class EmployeeReport(models.Model):
         """Approve the report"""
         today = fields.Date.today()
         
+        # Prevent self-approval by managers
+        if self.is_manager and self.name.user_id == self.env.user:
+            raise ValidationError(_("You cannot approve your own report"))
+        
         if self.is_director:
             self.write({
                 'state': 'approved',
@@ -538,6 +549,10 @@ class EmployeeReport(models.Model):
     def action_reject(self):
         """Reject the report with reason"""
         today = fields.Date.today()
+        
+        # Prevent self-rejection by managers
+        if self.is_manager and self.name.user_id == self.env.user:
+            raise ValidationError(_("You cannot reject your own report"))
         
         if self.is_director:
             return self._open_reject_wizard()
