@@ -13,12 +13,12 @@ class ReportRejectWizard(models.TransientModel):
         """Reject the report with reason"""
         if self.employee_report_id:
             self.employee_report_id.write({
-                'state': 'rejected',
+                'state': 'draft',
                 'reject_reason': self.reason
             })
             # Post message to chatter
             self.employee_report_id.message_post(
-                body=_("Report rejected. Reason: %s") % self.reason,
+                body=_("Report sent back to draft. Reason: %s") % self.reason,
                 message_type='comment'
             )
         elif self.support_staff_id:

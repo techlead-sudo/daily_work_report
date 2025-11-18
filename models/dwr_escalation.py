@@ -51,12 +51,7 @@ class DWREscalation(models.Model):
                     _logger.warning('Escalation target %s has no email; marking processed', mgr_mgr.id)
                     esc.processed = True
                     continue
-                # Use submission template if available
-                try:
-                    template = self.env.ref('daily_work_report.mail_template_dwr_submission')
-                except Exception:
-                    template = False
-                # Determine sender
+                # Always send a regular mail with employee name
                 email_from = self.env['ir.config_parameter'].sudo().get_param('mail.default.from')
                 if not email_from:
                     email_from = self.env.company.email or (self.env.user.company_id.email if self.env.user.company_id else False)
@@ -66,31 +61,25 @@ class DWREscalation(models.Model):
                         email_from = 'no-reply@' + catchall
                     else:
                         email_from = 'no-reply@example.com'
-                if template:
-                    template.sudo().send_mail(report.id, force_send=True, email_values={'email_from': email_from, 'email_to': mgr_mgr_email})
-                    report.message_post(body=_('Escalation: submission notification sent to %s') % (mgr_mgr.name,), message_type='notification')
-                    _logger.info('Escalation: sent notification for report %s to %s', report.id, mgr_mgr_email)
-                else:
-                    # Fallback: create mail.mail
-                    subject = _('Escalated Daily Work Report submitted by %s') % (report.name.name if report.name else '')
-                    base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
-                    record_url = f"{base_url}/web#id={report.id}&model={report._name}&view_type=form"
-                    body = _('<p>Hello %s,</p><p>%s has a pending daily work report submitted on %s which required review. You are receiving this because the reporting manager was unavailable.</p><p>View: %s</p>') % (mgr_mgr.name, report.name.name if report.name else '', report.date or '', record_url)
-                    mail_values = {
-                        'subject': subject,
-                        'body_html': body,
-                        'email_to': mgr_mgr_email,
-                        'email_from': email_from,
-                        'auto_delete': False,
-                        'state': 'outgoing',
-                        'message_type': 'email',
-                        'model': report._name,
-                        'res_id': report.id,
-                    }
-                    mail = self.env['mail.mail'].sudo().create(mail_values)
-                    mail.sudo().send(raise_exception=False)
-                    report.message_post(body=_('Escalation: submission notification sent to %s') % (mgr_mgr.name,), message_type='notification')
-                    _logger.info('Escalation fallback: sent mail.mail %s for report %s', mail.id, report.id)
+                subject = _('Escalated Daily Work Report submitted by %s') % (report.name.name if report.name else '')
+                base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+                record_url = f"{base_url}/web#id={report.id}&model={report._name}&view_type=form"
+                body = _('<p>Hello %s,</p><p>%s has a pending daily work report submitted on %s which required review. You are receiving this because the reporting manager was unavailable.</p><p>View: %s</p>') % (mgr_mgr.name, report.name.name if report.name else '', report.date or '', record_url)
+                mail_values = {
+                    'subject': subject,
+                    'body_html': body,
+                    'email_to': mgr_mgr_email,
+                    'email_from': email_from,
+                    'auto_delete': False,
+                    'state': 'outgoing',
+                    'message_type': 'email',
+                    'model': report._name,
+                    'res_id': report.id,
+                }
+                mail = self.env['mail.mail'].sudo().create(mail_values)
+                mail.sudo().send(raise_exception=False)
+                report.message_post(body=_('Escalation: submission notification sent to %s') % (mgr_mgr.name,), message_type='notification')
+                _logger.info('Escalation: sent mail.mail %s for report %s', mail.id, report.id)
                 esc.processed = True
             except Exception as e:
                 _logger.error('Error processing escalation %s: %s', esc.id, e, exc_info=True)

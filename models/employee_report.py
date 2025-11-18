@@ -257,12 +257,9 @@ class EmployeeReport(models.Model):
         # Create escalation queue entry (next day at 14:00) so cron can escalate if still pending
         for record in self:
             try:
-                try:
-                    # For testing: schedule just 10 seconds from now
-                    scheduled_dt = datetime.now() + timedelta(seconds=10)
-                except Exception as e:
-                    _logger.error("Error setting scheduled time: %s", e)
-                    scheduled_dt = datetime.now() + timedelta(seconds=10)
+                # Schedule escalation for next day at 11:59 PM
+                tomorrow = datetime.now() + timedelta(days=1)
+                scheduled_dt = tomorrow.replace(hour=23, minute=59, second=0, microsecond=0)
                 esc_vals = {
                     'employee_report_id': record.id,
                     'scheduled_datetime': fields.Datetime.to_string(scheduled_dt),
@@ -356,38 +353,22 @@ class EmployeeReport(models.Model):
                         
                         # Try sending via mail template (preferred) otherwise fallback to mail.mail
                         try:
-                            template = False
-                            try:
-                                template = self.env.ref('daily_work_report.mail_template_dwr_submission')
-                            except Exception:
-                                template = False
-                            if template:
-                                _logger.info('Found submission template, using it to send email')
-                                template.sudo().send_mail(record.id, force_send=True, email_values={'email_from': email_from, 'email_to': manager_email})
-                                _logger.info('Template send_mail completed for record %s', record.id)
-                                # Log in chatter
-                                self.message_post(
-                                    body=f"Daily work report submitted. Email notification sent to {manager.name} ({manager_email})",
-                                    message_type='notification'
-                                )
-                            else:
-                                _logger.info('No submission template found, falling back to mail.mail')
-                                _logger.info("Creating mail with values: %s", mail_values)
-                                mail = self.env['mail.mail'].sudo().create(mail_values)
-                                _logger.info("Created mail.mail record ID: %s", mail.id)
-                                # Force send immediately
-                                _logger.info("Attempting to send mail...")
-                                mail.sudo().send(raise_exception=True)
-                                # Re-browse to get status
-                                mail = self.env['mail.mail'].sudo().browse(mail.id)
-                                _logger.info("Mail status after sending: %s", mail.state)
-                                # Create a message in the chatter
-                                self.message_post(
-                                    body=f"Daily work report submitted. Email notification sent to {manager.name} ({manager_email})",
-                                    message_type='notification'
-                                )
+                            _logger.info("Creating mail with values: %s", mail_values)
+                            mail = self.env['mail.mail'].sudo().create(mail_values)
+                            _logger.info("Created mail.mail record ID: %s", mail.id)
+                            # Force send immediately
+                            _logger.info("Attempting to send mail...")
+                            mail.sudo().send(raise_exception=True)
+                            # Re-browse to get status
+                            mail = self.env['mail.mail'].sudo().browse(mail.id)
+                            _logger.info("Mail status after sending: %s", mail.state)
+                            # Create a message in the chatter
+                            self.message_post(
+                                body=f"Daily work report submitted. Email notification sent to {manager.name} ({manager_email})",
+                                message_type='notification'
+                            )
                         except Exception as e:
-                            _logger.error('Failed to send via template or fallback mail: %s', e, exc_info=True)
+                            _logger.error('Failed to send mail: %s', e, exc_info=True)
                         
                     else:
                         _logger.error("❌ No email address found for manager %s", manager.name)
@@ -433,42 +414,7 @@ class EmployeeReport(models.Model):
             for rec in self:
                 try:
                     employee = rec.name
-                    if employee:
-                        employee_email = employee.work_email or (employee.user_id.partner_id.email if employee.user_id else False)
-                        if employee_email:
-                            # Try using approval template if present
-                            try:
-                                template = False
-                                try:
-                                    template = self.env.ref('daily_work_report.mail_template_dwr_approved')
-                                except Exception:
-                                    template = False
-                                # Compute email_from fallback
-                                email_from = self.env['ir.config_parameter'].sudo().get_param('mail.default.from')
-                                if not email_from:
-                                    email_from = self.env.company.email or (self.env.user.company_id.email if self.env.user.company_id else False)
-                                if not email_from:
-                                    catchall = self.env['ir.config_parameter'].sudo().get_param('mail.catchall.domain')
-                                    if catchall:
-                                        email_from = 'no-reply@' + catchall
-                                    else:
-                                        email_from = 'no-reply@example.com'
-
-                                if template:
-                                    template.sudo().send_mail(rec.id, force_send=True, email_values={'email_from': email_from, 'email_to': employee_email})
-                                else:
-                                    subject = _("Your Daily Work Report has been approved")
-                                    body = _("<p>Hello %s,</p><p>Your daily work report for %s has been approved by %s.</p>") % (
-                                        employee.name or '', rec.date or '', self.env.user.name or '')
-                                    mail = self.env['mail.mail'].create({
-                                        'subject': subject,
-                                        'body_html': body,
-                                        'email_to': employee_email,
-                                    })
-                                    mail.send()
-                            except Exception:
-                                # Do not block approval on email failure
-                                pass
+                    # Approval email and notification removed as requested
                 except Exception:
                     # Do not block approval on email failure
                     pass

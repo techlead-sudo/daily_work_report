@@ -5,7 +5,7 @@
     <record id="mail_template_dwr_submission" model="mail.template">
         <field name="name">[DWR] Submission - Manager Notification</field>
         <field name="model_id" ref="model_employee_report"/>
-        <field name="subject">[Action Required] Daily Work Report submitted by ${object.name.name} — ${object.date}</field>
+        <field name="subject">[Action Required] Daily Work Report submitted by ${object.name} — ${object.date}</field>
         <field name="body_html"><![CDATA[
             <div style="font-family:Arial,Helvetica,sans-serif;color:#333;line-height:1.4;">
                 <table style="width:100%;border-collapse:collapse;margin-bottom:12px;">
@@ -15,26 +15,14 @@
                         </td>
                     </tr>
                 </table>
-                <p>Dear ${object.reporting_manager_id.name or (object.name.parent_id.name if object.name and object.name.parent_id else 'Manager')},</p>
+
+                <p>Hi ,</p>
 
                 <p>
-                    <strong>${object.name.name}</strong> has submitted their Daily Work Report for <strong>${object.date}</strong>.
+                    Your reportee has submitted their Daily Work Report for </strong>.
                 </p>
 
-                <!-- include summary if present -->
-                <div style="margin:10px 0;padding:10px;border-left:4px solid #e0e0e0;background:#fafafa;">${object.summary or ''}</div>
-
-                <p style="margin-top:12px;">
-                    <a href="${object.env['ir.config_parameter'].sudo().get_param('web.base.url')}/web#id=${object.id}&amp;model=${object._name}&amp;view_type=form" style="display:inline-block;padding:10px 16px;background:#0b74de;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:600;">View Report</a>
-                </p>
-
-                <p style="color:#666;font-size:13px;margin-top:18px;">
-                    Submitted on: ${object.submitted_time or ''}<br/>
-                    Prepared by: ${object.prepared_by.name or (object.name.name if object.name else '')}
-                </p>
-
-                <hr style="border:none;border-top:1px solid #eee;margin:18px 0;"/>
-                <p style="font-size:12px;color:#888;">This is an automated message from <strong>${user.company_id.name or object.env.company.name or 'Company'}</strong>. Please do not reply to this email.</p>
+       
             </div>
         ]]></field>
     </record>
@@ -46,27 +34,18 @@
         <field name="body_html"><![CDATA[
             <div style="font-family:Arial,Helvetica,sans-serif;color:#333;line-height:1.4;">
                 <h3 style="margin:0 0 8px 0;color:#1f3b6f;">Report Approved</h3>
-                <p>Hi ${object.name.name or 'Employee'},</p>
+                <p>Hi ,</p>
 
                 <p>
-                    Your Daily Work Report for <strong>${object.date}</strong> has been <strong>approved</strong> by ${user.name}.
+                    Your Daily Work Report  has been <strong>approved</strong> .
                 </p>
 
-                <p>
-                    You can view the approved report here:
-                </p>
+  
 
-                <p>
-                    <a href="${object.env['ir.config_parameter'].sudo().get_param('web.base.url')}/web#id=${object.id}&amp;model=${object._name}&amp;view_type=form" style="display:inline-block;padding:10px 16px;background:#28a745;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:600;">View Approved Report</a>
-                </p>
-
-                <p style="color:#666;font-size:13px;margin-top:12px;">
-                    Approved on: ${object.approved_time or fields.Datetime.now()}
-                </p>
+             
 
                 <hr style="border:none;border-top:1px solid #eee;margin:18px 0;"/>
-                <p style="font-size:12px;color:#888;">Regards,<br/>${user.company_id.name or user.name}</p>
-            </div>
+               
         ]]></field>
     </record>
 
