@@ -18,7 +18,8 @@ class DWREscalation(models.Model):
 
     @api.model
     def process_due_escalations(self):
-        """Called by cron: process escalations whose scheduled_datetime <= now and not processed."""
+        """Process escalations: escalate up hierarchy every 15 hours until top manager is reached."""
+        import pytz
         now = fields.Datetime.now()
         esc_recs = self.search([('processed', '=', False), ('scheduled_datetime', '<=', now)])
         _logger.info('DWR Escalation: processing %s records', len(esc_recs))
@@ -28,30 +29,28 @@ class DWREscalation(models.Model):
                 if not report:
                     esc.processed = True
                     continue
-                # Only escalate if still submitted
                 if report.state != 'submitted':
                     _logger.info('Report %s state is %s, skipping escalation', report.id, report.state)
                     esc.processed = True
                     continue
-                # Determine reporting manager (original)
-                reporting_manager = report.reporting_manager_id or (report.name.parent_id if report.name else False)
-                if not reporting_manager:
-                    _logger.warning('Report %s has no reporting manager; marking escalation processed', report.id)
+                # Find current escalation manager (from last escalation)
+                last_manager = None
+                if esc.created_by and esc.created_by.employee_id:
+                    last_manager = esc.created_by.employee_id
+                else:
+                    last_manager = report.reporting_manager_id or (report.name.parent_id if report.name else False)
+                # Escalate to next manager up
+                next_manager = last_manager.parent_id if last_manager else None
+                if not next_manager:
+                    _logger.warning('No higher manager to escalate to for report %s; marking processed', report.id)
                     esc.processed = True
                     continue
-                # Manager's manager
-                mgr_mgr = reporting_manager.parent_id
-                if not mgr_mgr:
-                    _logger.warning('Reporting manager for report %s has no manager to escalate to', report.id)
+                next_manager_email = next_manager.work_email or (next_manager.user_id.partner_id.email if next_manager.user_id else False)
+                if not next_manager_email:
+                    _logger.warning('Escalation target %s has no email; marking processed', next_manager.id)
                     esc.processed = True
                     continue
-                # Get email
-                mgr_mgr_email = mgr_mgr.work_email or (mgr_mgr.user_id.partner_id.email if mgr_mgr.user_id else False)
-                if not mgr_mgr_email:
-                    _logger.warning('Escalation target %s has no email; marking processed', mgr_mgr.id)
-                    esc.processed = True
-                    continue
-                # Always send a regular mail with employee name
+                # Send escalation email
                 email_from = self.env['ir.config_parameter'].sudo().get_param('mail.default.from')
                 if not email_from:
                     email_from = self.env.company.email or (self.env.user.company_id.email if self.env.user.company_id else False)
@@ -61,14 +60,25 @@ class DWREscalation(models.Model):
                         email_from = 'no-reply@' + catchall
                     else:
                         email_from = 'no-reply@example.com'
-                subject = _('Escalated Daily Work Report submitted by %s') % (report.name.name if report.name else '')
+                subject = _('Escalation: Daily Work Report requires your approval')
                 base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
                 record_url = f"{base_url}/web#id={report.id}&model={report._name}&view_type=form"
-                body = _('<p>Hello %s,</p><p>%s has a pending daily work report submitted on %s which required review. You are receiving this because the reporting manager was unavailable.</p><p>View: %s</p>') % (mgr_mgr.name, report.name.name if report.name else '', report.date or '', record_url)
+                body = _(
+                    '<p>Hello %(manager)s,</p>'
+                    '<p>%(employee)s has a pending daily work report submitted on %(date)s that requires your review and approval.</p>'
+                    '<p>This request was escalated because the previous manager did not act within 15 hours. If you do not approve within 15 hours, it will escalate to your manager.</p>'
+                    '<p><a href="%(url)s" style="background-color: #875A7B; padding: 8px 16px; text-decoration: none; color: #fff; border-radius: 5px; font-size:13px;">View Report</a></p>'
+                    '<p>Thank you.</p>'
+                ) % {
+                    'manager': next_manager.name,
+                    'employee': report.name.name if report.name else '',
+                    'date': report.date or '',
+                    'url': record_url
+                }
                 mail_values = {
                     'subject': subject,
                     'body_html': body,
-                    'email_to': mgr_mgr_email,
+                    'email_to': next_manager_email,
                     'email_from': email_from,
                     'auto_delete': False,
                     'state': 'outgoing',
@@ -78,9 +88,26 @@ class DWREscalation(models.Model):
                 }
                 mail = self.env['mail.mail'].sudo().create(mail_values)
                 mail.sudo().send(raise_exception=False)
-                report.message_post(body=_('Escalation: submission notification sent to %s') % (mgr_mgr.name,), message_type='notification')
+                report.message_post(
+                    body=_('Escalation notification sent to %s. If not approved within 15 hours, it will escalate to the next manager.') % (next_manager.name,),
+                    message_type='notification'
+                )
                 _logger.info('Escalation: sent mail.mail %s for report %s', mail.id, report.id)
                 esc.processed = True
+                # Schedule next escalation in 15 hours if still not approved
+                if next_manager.parent_id:
+                    # Schedule for 15 hours later in IST
+                    ist = pytz.timezone('Asia/Kolkata')
+                    now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
+                    now_ist = now_utc.astimezone(ist)
+                    next_escalation_ist = now_ist + timedelta(hours=15)
+                    scheduled_ist = next_escalation_ist.replace(minute=0, second=0, microsecond=0)
+                    scheduled_utc = scheduled_ist.astimezone(pytz.utc)
+                    self.env['dwr.escalation'].sudo().create({
+                        'employee_report_id': report.id,
+                        'scheduled_datetime': fields.Datetime.to_string(scheduled_utc),
+                        'created_by': next_manager.user_id.id if next_manager.user_id else None,
+                    })
             except Exception as e:
                 _logger.error('Error processing escalation %s: %s', esc.id, e, exc_info=True)
                 # Do not mark processed to allow retry next run

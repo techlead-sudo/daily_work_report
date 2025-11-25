@@ -257,14 +257,20 @@ class EmployeeReport(models.Model):
         # Create escalation queue entry (next day at 14:00) so cron can escalate if still pending
         for record in self:
             try:
-                # Schedule escalation for next day at 11:59 PM
-                tomorrow = datetime.now() + timedelta(days=1)
-                scheduled_dt = tomorrow.replace(hour=23, minute=59, second=0, microsecond=0)
-                esc_vals = {
-                    'employee_report_id': record.id,
-                    'scheduled_datetime': fields.Datetime.to_string(scheduled_dt),
-                }
-                self.env['dwr.escalation'].sudo().create(esc_vals)
+                    # Schedule escalation for next day at 16:00 IST (Asia/Kolkata)
+                    import pytz
+                    ist = pytz.timezone('Asia/Kolkata')
+                    now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
+                    now_ist = now_utc.astimezone(ist)
+                    tomorrow_ist = now_ist + timedelta(days=1)
+                    scheduled_ist = tomorrow_ist.replace(hour=16, minute=0, second=0, microsecond=0)
+                    # Convert back to UTC for Odoo storage
+                    scheduled_utc = scheduled_ist.astimezone(pytz.utc)
+                    esc_vals = {
+                        'employee_report_id': record.id,
+                        'scheduled_datetime': fields.Datetime.to_string(scheduled_utc),
+                    }
+                    self.env['dwr.escalation'].sudo().create(esc_vals)
             except Exception as e:
                 _logger.error('Failed to create escalation queue for report %s: %s', record.id, e)
 
