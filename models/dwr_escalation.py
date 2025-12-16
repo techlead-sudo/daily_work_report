@@ -94,14 +94,14 @@ class DWREscalation(models.Model):
                 )
                 _logger.info('Escalation: sent mail.mail %s for report %s', mail.id, report.id)
                 esc.processed = True
-                # Schedule next escalation in 15 hours if still not approved
+                # Schedule next escalation at next day's 14:00 IST if still not approved
                 if next_manager.parent_id:
-                    # Schedule for 15 hours later in IST
                     ist = pytz.timezone('Asia/Kolkata')
                     now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
                     now_ist = now_utc.astimezone(ist)
-                    next_escalation_ist = now_ist + timedelta(hours=15)
-                    scheduled_ist = next_escalation_ist.replace(minute=0, second=0, microsecond=0)
+                    next_day = now_ist.date() + timedelta(days=1)
+                    target_time = datetime(next_day.year, next_day.month, next_day.day, 14, 0, 0)
+                    scheduled_ist = ist.localize(target_time)
                     scheduled_utc = scheduled_ist.astimezone(pytz.utc)
                     self.env['dwr.escalation'].sudo().create({
                         'employee_report_id': report.id,

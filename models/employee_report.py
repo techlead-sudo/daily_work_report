@@ -193,7 +193,19 @@ class EmployeeReport(models.Model):
                 ])
                 is_additional_manager = bool(additional_manager_recs)
             
-            record.is_manager = is_direct_manager or is_reporting_manager or is_additional_manager
+            # Check if user is current escalation target (next-level manager queued via dwr.escalation)
+            is_escalation_target = False
+            try:
+                esc = self.env['dwr.escalation'].search([
+                    ('employee_report_id', '=', record.id),
+                    ('processed', '=', False),
+                    ('created_by', '=', self.env.user.id)
+                ], limit=1)
+                is_escalation_target = bool(esc)
+            except Exception:
+                is_escalation_target = False
+
+            record.is_manager = is_direct_manager or is_reporting_manager or is_additional_manager or is_escalation_target
             record.is_director = self.env.user.has_group('daily_work_report.group_directors')
             record.is_hod = self.env.user.has_group('daily_work_report.group_hod')
 
